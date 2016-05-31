@@ -12,7 +12,6 @@ use lua::{ThreadStatus, Index};
 use std::rc::Rc;
 use std::cell::{RefCell};
 use std::cell;
-//use std::path::{Path};
 use std::ptr;
 use std::marker::PhantomData;
 use std::clone::Clone;
@@ -108,7 +107,6 @@ pub fn lerror(message: &str) -> LuaError {
 
 pub struct LuaType {
     pub methods: &'static [(&'static str, Callback)],
-//    _marker: PhantomData<Fn(&'a T)>,
 }
 
 impl<'a> RumLua<'a> {
@@ -269,7 +267,6 @@ impl<'a> RumLua<'a> {
         }
 
         /* Create the metatable */
-//        let l = &mut self.state;
         self.state.new_metatable(&mt_name);
         self._push_closure(generic_gc::<T>, "__gc");
         self.state.set_field(-2, "__gc");
@@ -319,7 +316,6 @@ impl<'a> RumLua<'a> {
                     Some(rxf) => Ok(rxf.clone()),
                     _ => panic!("downcast error"),//None,
                 }
-               // bx.downcast::<Rc<RefCell<T>>>().unwrap().deref().clone(),
             },
             _ => Err(Box::new(LError{message: "Error getting object from stack".to_string()})),
         }
