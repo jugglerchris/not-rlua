@@ -1,26 +1,25 @@
+#![deny(warnings)]
+#![feature(plugin)]
+//#![plugin(clippy)]
+//#![warn(missing_docs)]
+
+#[macro_use]
+extern crate lua;
 extern crate libc;
 
 use self::libc::{c_int,c_void};
-use lua;
 use lua::{ThreadStatus, Index};
 use std::rc::Rc;
 use std::cell::{RefCell};
 use std::cell;
 //use std::path::{Path};
-use std::mem;
 use std::ptr;
 use std::marker::PhantomData;
-use std::borrow::{BorrowMut,Borrow};
 use std::clone::Clone;
 use std::collections::hash_map::HashMap;
 use std::any::{Any, TypeId};
-use std::ops::Deref;
 use std::error::Error;
 use std::fmt::{Display,Formatter};
-use std::convert::{From};
-use std;
-pub mod lmaildir;
-pub mod lrui;
 
 /* Smart wrapper for types shared with Lua */
 pub struct LuaPtr<T> {
@@ -109,7 +108,7 @@ impl Error for LError {
 
 impl Display for LError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "Error: {}", self.message);
+        write!(f, "Error: {}", self.message).unwrap();
         Ok(())
     }
 }
@@ -273,7 +272,7 @@ impl<'a> RumLua<'a> {
             ptr::write(fp, Box::new(f));
         };
         /* Load the shim generator */
-        self.state.push_closure(lua_func!(::rumlua::RumLua::lua_func_wrapper), 2);
+        self.state.push_closure(lua_func!(::RumLua::lua_func_wrapper), 2);
         self.state.raw_geti(lua::REGISTRYINDEX, self.lua_func_shim.value() as lua::Integer);
         self.state.rotate(-2, 1);
         self.state.push(name);

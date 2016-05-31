@@ -1,4 +1,4 @@
-use ::rumlua::{RumLua, LuaType, LuaRet, LuaPtr};
+use ::{RumLua, LuaType, LuaRet, LuaPtr};
 use lua;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -108,12 +108,12 @@ impl error::Error  for TestError {
 
 impl Display for TestError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "TestError({})", self.0);
+        write!(f, "TestError({})", self.0).unwrap();
         Ok(())
     }
 }
 
-fn test_fail(rl: &mut RumLua) -> LuaRet {
+fn test_fail(_: &mut RumLua) -> LuaRet {
     Err(Box::new(TestError("foo".to_string())))
 }
 fn test_seven(rl: &mut RumLua) -> LuaRet {
