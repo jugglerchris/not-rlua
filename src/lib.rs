@@ -46,25 +46,6 @@ impl<T> LuaPtr<T> {
     }
 }
 
-/* Immutable version of LuaPtr */
-pub struct LuaImmPtr<T> {
-    obj: Rc<T>,
-}
-
-impl<T> Clone for LuaImmPtr<T> {
-    fn clone(&self) -> Self {
-        LuaImmPtr{obj: self.obj.clone()}
-    }
-}
-
-impl<T> LuaImmPtr<T> {
-    pub fn new(obj: T) -> LuaImmPtr<T> {
-        LuaImmPtr{
-            obj: Rc::new(obj),
-        }
-    }
-}
-
 /// Lua function which helps translate from Rust's Result<>
 /// to Lua-style error.
 const LUA_FUNC_SHIM: &'static str = r#"
@@ -324,13 +305,6 @@ impl<'a> RumLua<'a> {
         unsafe { ptr::write(p, r) };
         self.state.set_metatable_from_registry(&self.types_id_to_str[&id]);
     }
-    pub fn push_imm<'b, T>(&mut self, objp: &LuaImmPtr<T>) where T:Any, T:'b {
-        let id = TypeId::of::<T>();
-        let p: *mut Option<Box<Any>> = self.state.new_userdata_typed();
-        let r = Some(Box::new((*objp).clone()) as Box<Any>);
-        unsafe { ptr::write(p, r) };
-        self.state.set_metatable_from_registry(&self.types_id_to_str[&id]);
-    }
     pub fn get<'ret, 'rl, T: Any>(&'rl mut self, index: Index) -> Result<LuaPtr<T>, LuaError>
                    where 'rl: 'ret, T: 'ret
     {
@@ -342,25 +316,6 @@ impl<'a> RumLua<'a> {
         match obj {
             Some(bx) => {
                 match bx.downcast_ref::<LuaPtr<T>>() {
-                    Some(rxf) => Ok(rxf.clone()),
-                    _ => panic!("downcast error"),//None,
-                }
-               // bx.downcast::<Rc<RefCell<T>>>().unwrap().deref().clone(),
-            },
-            _ => Err(Box::new(LError{message: "Error getting object from stack".to_string()})),
-        }
-    }
-    pub fn get_imm<'ret, 'rl, T: Any>(&'rl mut self, index: Index) -> Result<LuaImmPtr<T>, LuaError>
-                   where 'rl: 'ret, T: 'ret
-    {
-        let id = TypeId::of::<T>();
-        if !self.types_id_to_str.contains_key(&id) {
-            panic!("Unknown type!");
-        }
-        let obj = unsafe { self.state.test_userdata_typed::<Box<Any>>(index, &self.types_id_to_str[&id]) };
-        match obj {
-            Some(bx) => {
-                match bx.downcast_ref::<LuaImmPtr<T>>() {
                     Some(rxf) => Ok(rxf.clone()),
                     _ => panic!("downcast error"),//None,
                 }
