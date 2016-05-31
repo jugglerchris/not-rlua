@@ -7,7 +7,7 @@
 extern crate lua;
 extern crate libc;
 
-use self::libc::{c_int,c_void};
+pub use self::libc::{c_int,c_void};
 use lua::{ThreadStatus, Index};
 use std::rc::Rc;
 use std::cell::{RefCell};
@@ -85,7 +85,7 @@ const LUA_FUNC_SHIM: &'static str = r#"
 
 /* Lua interface */
 pub struct RumLua<'a> {
-    state: lua::State,
+    pub state: lua::State,
     types_str_to_id: HashMap<String, TypeId>,
     types_id_to_str: HashMap<TypeId, String>,
     lua_func_shim: lua::Reference,
@@ -126,7 +126,7 @@ pub fn lerror(message: &str) -> LuaError {
 }
 
 pub struct LuaType {
-    methods: &'static [(&'static str, Callback)],
+    pub methods: &'static [(&'static str, Callback)],
 //    _marker: PhantomData<Fn(&'a T)>,
 }
 
