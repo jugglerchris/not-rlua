@@ -170,24 +170,26 @@ impl<'a> RumLua<'a> {
     }
 
     #[allow(dead_code)]
-    pub fn do_string(&mut self, s: &str) {
+    pub fn do_string(&mut self, s: &str) -> Result<(), LuaError> {
         let status = self.state.load_string(s);
-        match status {
+        let result = match status {
             ThreadStatus::Ok => {
-                    self.run_loaded_lua(0, 0).unwrap()
+                    self.run_loaded_lua(0, 0)
                 },
             _ => {
                 let err_msg = self.state.to_str(-1);
                 match err_msg {
-                    Some(msg) => println!("Syntax error loading string: {}", msg),
-                    _ => println!("Error loading string"),
+                    Some(msg) => lfail(&format!("Syntax error loading string: {}", msg)),
+                    _ => lfail("Error loading string"),
                 }
             }
-        }
+        };
         /* Clear the stack... */
         // TODO: only pop what we put there
         let size = self.state.get_top();
         self.state.pop(size);
+
+        result
     }
 
     pub fn do_file(&mut self, path: &str) -> Result<(),LuaError> {
@@ -309,9 +311,13 @@ impl<'a> RumLua<'a> {
         if !self.types_id_to_str.contains_key(&id) {
             panic!("Unknown type!");
         }
-        let obj = unsafe { self.state.test_userdata_typed::<Box<Any>>(index, &self.types_id_to_str[&id]) };
+        let obj: Option<&mut Option<Box<Any>>> = unsafe { self.state.test_userdata_typed::<Option<Box<Any>>>(index, &self.types_id_to_str[&id]) };
+        println!("get(): obj={:?}, &obj={:p}", obj, &obj);
         match obj {
-            Some(bx) => {
+            Some(&mut None) => {
+                Err(Box::new(LError{message: "Called method on GCed object".to_string()}))
+            },
+            Some(&mut Some(ref bx)) => {
                 match bx.downcast_ref::<LuaPtr<T>>() {
                     Some(rxf) => Ok(rxf.clone()),
                     _ => panic!("downcast error"),//None,
@@ -326,7 +332,7 @@ impl<'a> RumLua<'a> {
 fn generic_gc<T: Any>(rl: &mut RumLua) -> LuaRet {
     let id = TypeId::of::<T>();
     let typename = &rl.types_id_to_str[&id];
-    let obj : Option<&mut Option<Box<Any>>> = unsafe { rl.state.test_userdata_typed(1, typename) };
+    let obj : Option<&mut Option<Box<Any>>> = unsafe { rl.state.test_userdata_typed::<Option<Box<Any>>>(1, typename) };
     match obj {
         None => {
             println!("Error in generic_gc: failed to match item");

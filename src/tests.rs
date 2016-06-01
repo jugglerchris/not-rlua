@@ -15,7 +15,6 @@ impl Drop for TestDrop {
     fn drop(&mut self) {
         let x:u32 = *self.dropcount.borrow();
         *self.dropcount.borrow_mut() = x+1;
-        println!("Dropping TestDrop");
     }
 }
 
@@ -89,15 +88,15 @@ fn lua_meth1() {
     rlua.state.set_global("testvar");
     rlua.do_string("
         testvar:set(testvar:get() .. 'bar')
-    ");
+    ").unwrap();
     rlua.state.get_global("testvar");
     let tvar = rlua.get::<TestMeth>(1).unwrap();
     assert_eq!(tvar.borrow().data, "foobar");
 }
 
 fn test_method_getstr(rl: &mut RumLua) -> LuaRet {
-    /* let tobj = */ try!(rl.get::<TestDrop>(1));
-    rl.state.push("asdf");
+    let tobj = try!(rl.get::<TestDrop>(1));
+    rl.state.push(format!("asdf {:p}", &tobj));
     Ok(1)
 }
 
@@ -126,8 +125,10 @@ fn lua_gc_resurrect() {
                  }
             global_wrapper = setmetatable({}, mt)
             global_wrapper.foo = global_obj
+            global_s1 = global_obj:getstr()
             global_obj = nil
-        "#);
+        "#).unwrap();
+        assert_eq!(rlua.state.get_global("global_s1"), lua::Type::String);
         rlua.state.gc(lua::GcOption::Collect, 0);
         /* The obj is still alive */
         assert_eq!(*dropcount.borrow(), 0u32);
@@ -138,10 +139,8 @@ fn lua_gc_resurrect() {
         assert_eq!(*dropcount.borrow(), 1u32);
 
         assert_eq!(rlua.state.get_global("global_foo"), lua::Type::Userdata);
-        rlua.do_string(r#"
-            global_s = global_foo:getstr()
-        "#);
-        assert_eq!(rlua.state.get_global("global_s"), lua::Type::String);
+        let err = rlua.do_string(r#" global_s = global_foo:getstr() "#).unwrap_err();
+        assert!(err.description().contains("Called method on GCed object"));
     }
 }
 
@@ -183,7 +182,7 @@ fn lua_errors() {
         local ok, err = pcall(funcs.fail)
         result1 = "ret7 returned "..x
         result2 = "fail returned ["..tostring(ok).."], ["..tostring(err).."]"
-    "#);
+    "#).unwrap();
     assert_eq!(rlua.state.get_global("result1"), lua::Type::String);
     assert_eq!(rlua.state.to_str(-1).unwrap(), "ret7 returned 7");
     assert_eq!(rlua.state.get_global("result2"), lua::Type::String);
