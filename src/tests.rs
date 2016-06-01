@@ -20,7 +20,7 @@ impl Drop for TestDrop {
 }
 
 #[test]
-    #[allow(unused_variables)]
+#[allow(unused_variables)]
 fn lua_start() {
     let rlua = RumLua::new();
 }
@@ -93,6 +93,56 @@ fn lua_meth1() {
     rlua.state.get_global("testvar");
     let tvar = rlua.get::<TestMeth>(1).unwrap();
     assert_eq!(tvar.borrow().data, "foobar");
+}
+
+fn test_method_getstr(rl: &mut RumLua) -> LuaRet {
+    /* let tobj = */ try!(rl.get::<TestDrop>(1));
+    rl.state.push("asdf");
+    Ok(1)
+}
+
+static GCTEST_METHODS: LuaType = LuaType{
+     methods: &[
+        ("getstr", test_method_getstr),
+     ],
+};
+
+#[test]
+fn lua_gc_resurrect() {
+    let dropcount = Rc::new(RefCell::new(0u32));
+    {
+        let mut rlua = RumLua::new();
+        rlua.register_type::<TestDrop>("TestDrop".to_string(), &GCTEST_METHODS);
+        let ts = TestDrop{ dropcount: dropcount.clone() };
+
+        rlua.push(&LuaPtr::new(ts));
+        rlua.state.set_global("global_obj");
+
+        rlua.do_string(r#"
+            mt = {
+                __gc = function(obj)
+                           global_foo = obj.foo
+                       end,
+                 }
+            global_wrapper = setmetatable({}, mt)
+            global_wrapper.foo = global_obj
+            global_obj = nil
+        "#);
+        rlua.state.gc(lua::GcOption::Collect, 0);
+        /* The obj is still alive */
+        assert_eq!(*dropcount.borrow(), 0u32);
+
+        rlua.state.push_nil();
+        rlua.state.set_global("global_wrapper");
+        rlua.state.gc(lua::GcOption::Collect, 0);
+        assert_eq!(*dropcount.borrow(), 1u32);
+
+        assert_eq!(rlua.state.get_global("global_foo"), lua::Type::Userdata);
+        rlua.do_string(r#"
+            global_s = global_foo:getstr()
+        "#);
+        assert_eq!(rlua.state.get_global("global_s"), lua::Type::String);
+    }
 }
 
 #[derive(Debug)]
